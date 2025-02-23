@@ -83,7 +83,13 @@ pub fn install_apk(server: &mut ADBServer, apk_path: &str) -> anyhow::Result<(),
     Ok(())
 }
 
-pub fn pull_app_apks(server: &mut ADBServer, app_id: &str, output_dir: &str) -> anyhow::Result<()> {
+pub fn pull_app_apks(
+    server: &mut ADBServer,
+    app_id: &str,
+    output_dir: &str,
+    verbose: bool,
+    all: bool,
+) -> anyhow::Result<()> {
     let (installed, paths) = check_balatro_install(server)?;
 
     if !installed {
@@ -92,22 +98,37 @@ pub fn pull_app_apks(server: &mut ADBServer, app_id: &str, output_dir: &str) -> 
 
     let mut device = server.get_device()?;
 
+    if server.get_device().is_ok() {
+        println!("Found valid connected device");
+    }
+
     for path in paths {
-        let mut conents_buffer = StringBuf::new();
-
-        device
-            .pull(&path, &mut conents_buffer)
-            .with_context(|| format!("Failed to pull APK from {}", path))?;
-
         let filename = Path::new(&path)
             .file_name()
             .and_then(|f| f.to_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid filename in path: {}", path))?;
 
-        let output_path = Path::new(output_dir).join(filename);
+        if !all && !filename.eq("base.apk") {
+            break;
+        }
 
-        std::fs::write(&output_path, conents_buffer.as_string()?)
-            .with_context(|| format!("Failed to write APK to {}", output_path.display()))?;
+        let output_path = Path::new(output_dir).join(filename);
+        let mut output_file = std::fs::File::create(&output_path)
+            .with_context(|| format!("Failed to create output file: {}", output_path.display()))?;
+
+        let pull_status = device.pull(&path, &mut output_file).with_context(|| {
+            format!(
+                "Failed to pull APK from {} to {}",
+                path,
+                output_path.display()
+            )
+        });
+
+        if pull_status.is_ok() {
+            println!("Successfully pulled APK to host device");
+            println!("APK =======> {}", filename);
+            println!("Dest ======> {}\n", output_path.display());
+        }
     }
 
     Ok(())

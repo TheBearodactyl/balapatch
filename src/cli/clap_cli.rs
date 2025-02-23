@@ -93,7 +93,24 @@ pub enum Commands {
 #[derive(Subcommand, Debug)]
 pub enum BalatroSubcommands {
     /// Check if Balatro is installed on connected device
-    CheckBalatro,
+    Check,
+
+    /// Pulls the apks associated with the installation of
+    /// Balatro to the a CLI specified out directory
+    Pull {
+        /// An optional output directory for the apks
+        /// (defaults to `balatro-apks`)
+        #[arg(short = 'o', long)]
+        out: Option<String>,
+
+        /// Pulls all apks instead of just `base.apk`
+        #[arg(short = 'a', long)]
+        all: bool,
+
+        /// Verbose output
+        #[arg(short = 'v', long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

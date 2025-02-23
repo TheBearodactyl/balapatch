@@ -58,9 +58,31 @@ fn main() -> anyhow::Result<()> {
             }
         },
         Commands::Balatro { command } => match command {
-            BalatroSubcommands::CheckBalatro => {
+            BalatroSubcommands::Check => {
                 if adb::check_balatro_install(&mut adb_server)?.0 {
                     println!("Balatro is correctly installed on the connected device");
+                } else {
+                    println!(
+                        "Could not find a valid installation of Balatro on the connected device"
+                    );
+                }
+            }
+            BalatroSubcommands::Pull { out, all, verbose } => {
+                let apks_out = match &out {
+                    Some(folder) => folder,
+                    None => "balatro-apks",
+                };
+                std::fs::create_dir_all(apks_out)?;
+
+                if adb::check_balatro_install(&mut adb_server)?.0 {
+                    adb::pull_app_apks(
+                        &mut adb_server,
+                        "com.playstack.balatro.android",
+                        apks_out,
+                        verbose,
+                        all,
+                    )?;
+                    println!("Successfully pulled Balatro APKs to {}", apks_out);
                 } else {
                     println!(
                         "Could not find a valid installation of Balatro on the connected device"
