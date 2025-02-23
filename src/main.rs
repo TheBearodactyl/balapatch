@@ -16,7 +16,7 @@ use adb_client::ADBServer;
 use anyhow::Context;
 use clap::Parser;
 use cli::{
-    clap_cli::{AdbSubcommands, Cli, Commands},
+    clap_cli::{AdbSubcommands, BalatroSubcommands, Cli, Commands},
     prompts::select_file::select_path_from_current_dir,
 };
 
@@ -56,13 +56,15 @@ fn main() -> anyhow::Result<()> {
             AdbSubcommands::ListDevices => {
                 adb::list_devices(&mut adb_server)?;
             }
-
-            AdbSubcommands::CheckBalatro => {
-                let is_installed = adb::check_balatro_install(&mut adb_server)?;
-                if is_installed {
-                    println!("Balatro is installed on the connected device");
+        },
+        Commands::Balatro { command } => match command {
+            BalatroSubcommands::CheckBalatro => {
+                if adb::check_balatro_install(&mut adb_server)?.0 {
+                    println!("Balatro is correctly installed on the connected device");
                 } else {
-                    println!("Balatro is not installed on the connected device");
+                    println!(
+                        "Could not find a valid installation of Balatro on the connected device"
+                    );
                 }
             }
         },

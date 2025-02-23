@@ -83,6 +83,17 @@ pub enum Commands {
         #[command(subcommand)]
         command: AdbSubcommands,
     },
+
+    Balatro {
+        #[command(subcommand)]
+        command: BalatroSubcommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BalatroSubcommands {
+    /// Check if Balatro is installed on connected device
+    CheckBalatro,
 }
 
 #[derive(Subcommand, Debug)]
@@ -107,7 +118,4 @@ pub enum AdbSubcommands {
 
     /// List all connected ADB devices
     ListDevices,
-
-    /// Check if Balatro is installed on connected device
-    CheckBalatro,
 }

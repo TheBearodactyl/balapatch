@@ -84,12 +84,31 @@ pub fn install_apk(server: &mut ADBServer, apk_path: &str) -> anyhow::Result<(),
 }
 
 pub fn pull_app_apks(server: &mut ADBServer, app_id: &str, output_dir: &str) -> anyhow::Result<()> {
-    let mut output = StringBuf::new();
+    let (installed, paths) = check_balatro_install(server)?;
+
+    if !installed {
+        return Err(anyhow::anyhow!("Balatro is not currently installed"));
+    }
+
     let mut device = server.get_device()?;
 
-    device
-        .shell_command(&["pm", "path", app_id], &mut std::io::stdout())
-        .expect("Fuck");
+    for path in paths {
+        let mut conents_buffer = StringBuf::new();
+
+        device
+            .pull(&path, &mut conents_buffer)
+            .with_context(|| format!("Failed to pull APK from {}", path))?;
+
+        let filename = Path::new(&path)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename in path: {}", path))?;
+
+        let output_path = Path::new(output_dir).join(filename);
+
+        std::fs::write(&output_path, conents_buffer.as_string()?)
+            .with_context(|| format!("Failed to write APK to {}", output_path.display()))?;
+    }
 
     Ok(())
 }
@@ -121,7 +140,7 @@ pub fn list_devices(server: &mut ADBServer) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<bool> {
+pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Vec<String>)> {
     let mut output = StringBuf::new();
     let mut device = server
         .get_device()
@@ -129,10 +148,17 @@ pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<bool> {
 
     device
         .shell_command(
-            &["pm", "list", "packages", "com.playstack.balatro.android"],
+            &["pm", "path", "com.playstack.balatro.android"],
             &mut output,
         )
-        .context("Balatro not installed")?;
+        .context("Failed to find Balatro")?;
 
-    Ok(!output.as_string()?.is_empty())
+    let output_str = output.as_string()?;
+    let paths: Vec<String> = output_str
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| line.trim_start_matches("package:").to_string())
+        .collect();
+
+    Ok((!paths.is_empty(), paths))
 }
