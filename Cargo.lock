@@ -253,12 +253,11 @@ dependencies = [
  "adb_client",
  "anyhow",
  "clap",
- "flate2",
  "fuzzy-matcher",
  "inquire",
  "java-locator",
  "reqwest",
- "tokio",
+ "smali",
  "which 7.0.2",
  "zip",
 ]
@@ -2624,6 +2623,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "smali"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e84e6d98c18fa99c6cd81124a8c4edaa06406595f482545002d4d9189ecde213"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2861,23 +2869,9 @@ dependencies = [
  "bytes",
  "libc",
  "mio 1.0.3",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
- "tokio-macros",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "tokio-macros"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

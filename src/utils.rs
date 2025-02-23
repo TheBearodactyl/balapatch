@@ -70,23 +70,19 @@ impl Default for StringBuf {
 pub fn download_file(url: &str, save_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let response = reqwest::blocking::get(url)?;
     let path = Path::new(save_path);
-    let mut file = BufWriter::new(std::fs::File::create(path)?);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?; // ensure parent directory exists
+    }
+    let mut file = BufWriter::new(File::create(path)?);
     let content = response.bytes()?;
-
     copy(&mut content.as_ref(), &mut file)?;
-
     Ok(())
 }
 
 /// Returns true if Java is installed and available on the system, false otherwise.
 pub fn return_java_install() -> (bool, Option<PathBuf>) {
-    match java_locator::locate_java_home() {
-        Ok(java_home) => (
-            true,
-            Some(PathBuf::from(
-                java_locator::locate_java_home().expect("Fuck"),
-            )),
-        ),
+    match locate_java_home() {
+        Ok(java_home) => (true, Some(PathBuf::from(locate_java_home().expect("Fuck")))),
         Err(e) => {
             eprintln!("Java not found: {}", e);
             (false, None)

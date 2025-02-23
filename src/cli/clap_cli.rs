@@ -17,7 +17,7 @@ impl TypedValueParser for SwitchValueParser {
         cmd: &clap::Command,
         arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
-    ) -> Result<Self::Value, clap::Error> {
+    ) -> Result<Self::Value, Error> {
         Ok(!value.is_empty())
     }
 }
@@ -30,12 +30,12 @@ impl TypedValueParser for Ipv4Parser {
         cmd: &clap::Command,
         arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
-    ) -> Result<Self::Value, clap::Error> {
+    ) -> Result<Self::Value, Error> {
         let value_str = value
             .to_str()
             .ok_or_else(|| {
                 Error::raw(
-                    clap::error::ErrorKind::InvalidUtf8,
+                    ErrorKind::InvalidUtf8,
                     "Invalid UTF-8 sequence in IP address",
                 )
             })
@@ -44,7 +44,7 @@ impl TypedValueParser for Ipv4Parser {
         let parts: Vec<&str> = value_str.split('.').collect();
         if parts.len() != 4 {
             return Err(Error::raw(
-                clap::error::ErrorKind::InvalidValue,
+                ErrorKind::InvalidValue,
                 "IPv4 address must have exactly 4 octets",
             ));
         }
@@ -55,7 +55,7 @@ impl TypedValueParser for Ipv4Parser {
                 .parse::<u8>()
                 .map_err(|_| {
                     Error::raw(
-                        clap::error::ErrorKind::InvalidValue,
+                        ErrorKind::InvalidValue,
                         format!("Invalid octet: {}", part),
                     )
                 })
@@ -96,7 +96,7 @@ pub enum BalatroSubcommands {
     Check,
 
     /// Pulls the apks associated with the installation of
-    /// Balatro to the a CLI specified out directory
+    /// Balatro to the CLI specified out directory
     Pull {
         /// An optional output directory for the apks
         /// (defaults to `balatro-apks`)
@@ -111,6 +111,20 @@ pub enum BalatroSubcommands {
         #[arg(short = 'v', long)]
         verbose: bool,
     },
+
+    Unpack {
+        /// Path to the apk file
+        #[arg(short = 'a', long)]
+        apk_path: Option<String>,
+
+        /// Output directory for unpacked files
+        #[arg(short = 'o', long)]
+        out: Option<String>,
+
+        /// Verbose output
+        #[arg(short = 'v', long)]
+        verbose: bool,
+    }
 }
 
 #[derive(Subcommand, Debug)]

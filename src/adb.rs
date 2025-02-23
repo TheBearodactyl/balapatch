@@ -1,4 +1,5 @@
 use adb_client::{ADBDeviceExt, ADBServer, DeviceState, RustADBError};
+use crate::balatro;
 use anyhow::Context;
 use std::{
     fmt::Display,
@@ -6,8 +7,6 @@ use std::{
     net::{Ipv4Addr, SocketAddrV4},
     path::Path,
 };
-
-use crate::utils::StringBuf;
 
 fn format_device_state(state: &DeviceState) -> String {
     let formatted_value: &str = match state {
@@ -22,7 +21,7 @@ fn format_device_state(state: &DeviceState) -> String {
         DeviceState::Bootloader => "In Bootloader",
         DeviceState::Host => "Host",
         DeviceState::Recovery => "In Recovery Mode",
-        DeviceState::Sideload => "In Sideload Mode",
+        DeviceState::Sideload => "In Sideloading Mode",
         DeviceState::Rescue => "In Rescue Mode",
     };
 
@@ -90,7 +89,7 @@ pub fn pull_app_apks(
     verbose: bool,
     all: bool,
 ) -> anyhow::Result<()> {
-    let (installed, paths) = check_balatro_install(server)?;
+    let (installed, paths) = balatro::check_balatro_install(server)?;
 
     if !installed {
         return Err(anyhow::anyhow!("Balatro is not currently installed"));
@@ -113,7 +112,7 @@ pub fn pull_app_apks(
         }
 
         let output_path = Path::new(output_dir).join(filename);
-        let mut output_file = std::fs::File::create(&output_path)
+        let mut output_file = File::create(&output_path)
             .with_context(|| format!("Failed to create output file: {}", output_path.display()))?;
 
         let pull_status = device.pull(&path, &mut output_file).with_context(|| {
@@ -159,27 +158,4 @@ pub fn list_devices(server: &mut ADBServer) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Vec<String>)> {
-    let mut output = StringBuf::new();
-    let mut device = server
-        .get_device()
-        .context("Failed to connect to ADB device")?;
-
-    device
-        .shell_command(
-            &["pm", "path", "com.playstack.balatro.android"],
-            &mut output,
-        )
-        .context("Failed to find Balatro")?;
-
-    let output_str = output.as_string()?;
-    let paths: Vec<String> = output_str
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(|line| line.trim_start_matches("package:").to_string())
-        .collect();
-
-    Ok((!paths.is_empty(), paths))
 }

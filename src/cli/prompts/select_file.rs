@@ -50,12 +50,12 @@ impl FilePathCompleter {
             let path = entry.path();
             let path_str = if path.is_dir() {
                 #[cfg(not(windows))]
-                let path_seperator = "/";
+                let path_separator = "/";
 
                 #[cfg(windows)]
-                let path_seperator = "\\";
+                let path_separator = "\\";
 
-                format!("{}{}", path.to_string_lossy(), path_seperator)
+                format!("{}{}", path.to_string_lossy(), path_separator)
             } else {
                 path.to_string_lossy().to_string()
             };
@@ -95,17 +95,17 @@ impl Autocomplete for FilePathCompleter {
         &mut self,
         input: &str,
         highlighted_suggestion: Option<String>,
-    ) -> Result<inquire::autocompletion::Replacement, CustomUserError> {
+    ) -> Result<Replacement, CustomUserError> {
         self.update_input(input)?;
 
         Ok(if let Some(suggestion) = highlighted_suggestion {
-            Replacement::Some(suggestion)
+            Some(suggestion)
         } else {
             let matches = self.fuzzy_sort(input);
             matches
                 .first()
-                .map(|(path, _)| Replacement::Some(path.clone()))
-                .unwrap_or(Replacement::None)
+                .map(|(path, _)| Some(path.clone()))
+                .unwrap_or(None)
         })
     }
 }
