@@ -54,10 +54,7 @@ impl TypedValueParser for Ipv4Parser {
             octets[i] = part
                 .parse::<u8>()
                 .map_err(|_| {
-                    Error::raw(
-                        ErrorKind::InvalidValue,
-                        format!("Invalid octet: {}", part),
-                    )
+                    Error::raw(ErrorKind::InvalidValue, format!("Invalid octet: {}", part))
                 })
                 .expect("fuck");
         }
@@ -124,13 +121,27 @@ pub enum BalatroSubcommands {
         /// Verbose output
         #[arg(short = 'v', long)]
         verbose: bool,
-    }
+    },
 }
 
 #[derive(Subcommand, Debug)]
 pub enum AdbSubcommands {
     /// Connect to an ADB device
     Connect {
+        #[command(subcommand)]
+        command: ConnectSubcommands,
+    },
+
+    /// Disconnect all ADB devices
+    Disconnect,
+
+    /// List all connected ADB devices
+    ListDevices,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConnectSubcommands {
+    Wireless {
         /// IP address of the device
         #[arg(short = 'i', long, value_parser = Ipv4Parser)]
         ip_addr: [u8; 4],
@@ -144,9 +155,5 @@ pub enum AdbSubcommands {
         adb_pin: u32,
     },
 
-    /// Disconnect all ADB devices
-    Disconnect,
-
-    /// List all connected ADB devices
-    ListDevices,
+    Wired,
 }

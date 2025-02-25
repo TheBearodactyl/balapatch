@@ -1,12 +1,14 @@
-use adb_client::{ADBDeviceExt, ADBServer, DeviceState, RustADBError};
 use crate::balatro;
-use anyhow::Context;
+use crate::utils::Either;
+use adb_client::{ADBDeviceExt, ADBServer, ADBUSBDevice, DeviceState, RustADBError};
+use anyhow::{Context, Result, anyhow};
 use std::{
     fmt::Display,
     fs::File,
     net::{Ipv4Addr, SocketAddrV4},
     path::Path,
 };
+use tracing::info;
 
 fn format_device_state(state: &DeviceState) -> String {
     let formatted_value: &str = match state {
@@ -28,29 +30,45 @@ fn format_device_state(state: &DeviceState) -> String {
     formatted_value.to_string()
 }
 
-pub fn get_adb_server(ipv4_addr: Option<[u8; 4]>, port: Option<u16>) -> ADBServer {
-    match (ipv4_addr, port) {
-        (Some(addr), Some(p)) => ADBServer::new(SocketAddrV4::new(
-            Ipv4Addr::new(addr[0], addr[1], addr[2], addr[3]),
-            p,
-        )),
-        _ => ADBServer::default(),
+pub type WirelessIp = ([u8; 4], u16);
+pub type WiredIds = (u16, u16);
+
+#[derive(Debug, PartialEq)]
+pub enum ConnectionMode {
+    Wireless(WirelessIp),
+    Wired(WiredIds),
+}
+
+pub fn get_adb_connection(connection: ConnectionMode) -> Result<Either<ADBServer, ADBUSBDevice>> {
+    match connection {
+        ConnectionMode::Wireless(ip_addr) => {
+            let server = ADBServer::new(SocketAddrV4::new(
+                Ipv4Addr::new(ip_addr.0[0], ip_addr.0[1], ip_addr.0[2], ip_addr.0[3]),
+                ip_addr.1,
+            ));
+            Ok(Either::new_left(server))
+        }
+        ConnectionMode::Wired(device_ids) => {
+            if device_ids == (0, 0) {
+                return Err(anyhow!("No connected USB devices found"));
+            }
+
+            let usb_device = ADBUSBDevice::new(device_ids.0, device_ids.1)
+                .context("Failed to create USB device connection")?;
+
+            Ok(Either::new_right(usb_device))
+        }
     }
 }
 
-pub fn check_adb_file_exists(server: &mut ADBServer, file_path: &str) -> anyhow::Result<bool> {
+pub fn check_adb_file_exists(server: &mut ADBServer, file_path: &str) -> Result<bool> {
     Ok(server
-        .get_device()
-        .expect("Could not connect to device")
+        .get_device()?
         .shell_command(&["test", file_path], &mut std::io::stdout())
         .is_ok())
 }
 
-pub fn pull_adb_file(
-    server: &mut ADBServer,
-    file_path: &str,
-    target_path: &str,
-) -> anyhow::Result<()> {
+pub fn pull_adb_file(server: &mut ADBServer, file_path: &str, target_path: &str) -> Result<()> {
     let mut device = &mut server
         .get_device()
         .context("Failed to connect to ADB device")?;
@@ -69,7 +87,7 @@ pub fn pull_adb_file(
     Ok(())
 }
 
-pub fn install_apk(server: &mut ADBServer, apk_path: &str) -> anyhow::Result<(), RustADBError> {
+pub fn install_apk(server: &mut ADBServer, apk_path: &str) -> Result<(), RustADBError> {
     let mut device = server.get_device()?;
     let apk_path = Path::new(apk_path);
 
@@ -88,7 +106,7 @@ pub fn pull_app_apks(
     output_dir: &str,
     verbose: bool,
     all: bool,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let (installed, paths) = balatro::check_balatro_install(server)?;
 
     if !installed {
@@ -98,7 +116,7 @@ pub fn pull_app_apks(
     let mut device = server.get_device()?;
 
     if server.get_device().is_ok() {
-        println!("Found valid connected device");
+        info!("Found valid connected device");
     }
 
     for path in paths {
@@ -124,16 +142,16 @@ pub fn pull_app_apks(
         });
 
         if pull_status.is_ok() {
-            println!("Successfully pulled APK to host device");
-            println!("APK =======> {}", filename);
-            println!("Dest ======> {}\n", output_path.display());
+            info!("Successfully pulled APK to host device");
+            info!("APK =======> {}", filename);
+            info!("Dest ======> {}\n", output_path.display());
         }
     }
 
     Ok(())
 }
 
-pub fn disconnect_all_devices(server: &mut ADBServer) -> anyhow::Result<()> {
+pub fn disconnect_all_devices(server: &mut ADBServer) -> Result<()> {
     server
         .kill()
         .context("Failed to disconnect all ADB devices")?;
@@ -141,15 +159,15 @@ pub fn disconnect_all_devices(server: &mut ADBServer) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn list_devices(server: &mut ADBServer) -> anyhow::Result<()> {
+pub fn list_devices(server: &mut ADBServer) -> Result<()> {
     let devices = server.devices().context("Failed to list ADB devices")?;
 
     if devices.is_empty() {
-        println!("No connected devices found.");
+        info!("No connected devices found.");
     } else {
         println!("Connected devices:");
         for device in devices {
-            println!(
+            info!(
                 "Identifier => {}\nState      => {}\n",
                 device.identifier.split('.').next().unwrap(),
                 format_device_state(&device.state)

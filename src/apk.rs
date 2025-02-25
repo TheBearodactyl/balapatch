@@ -1,14 +1,20 @@
 use anyhow::Result;
+use tracing::info;
 
-pub fn get_apktool() -> Result<()> {
-    crate::utils::download_file(
-        "https://github.com/iBotPeaches/Apktool/releases/download/v2.11.0/apktool_2.11.0.jar",
-        "balapatch/apktool.jar",
-    )
-    .expect("fuck");
+pub async fn get_apktool() -> Result<()> {
+    if !std::fs::exists("balapatch/apktool.jar")? {
+        crate::utils::download_file(
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.11.0/apktool_2.11.0.jar",
+            "balapatch/apktool.jar",
+        )
+        .await
+        .expect("Failed to download Apktool");
 
-    if std::fs::exists("balapatch/apktool.jar")? {
-        println!("Apktool downloaded successfully!");
+        if std::fs::exists("balapatch/apktool.jar")? {
+            info!("Apktool downloaded successfully!");
+        }
+    } else {
+        info!("Apktool already downloaded, using existing copy!");
     }
 
     Ok(())

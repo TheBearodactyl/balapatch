@@ -1,7 +1,10 @@
+use crate::progress::create_bytes_progress;
+use crate::utils::StringBuf;
+use crate::{adb, apk, progress};
 use adb_client::{ADBDeviceExt, ADBServer};
 use anyhow::{Context, Error};
-use crate::{adb, apk};
-use crate::utils::StringBuf;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::sync::{Arc, Mutex};
 
 /// Checks if the Balatro application is installed on the connected ADB device and retrieves its APK paths.
 ///
@@ -39,46 +42,115 @@ pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Ve
     Ok((!paths.is_empty(), paths))
 }
 
-pub fn pull_balatro(mut adb_server: &mut ADBServer, out: &Option<String>, all: Option<bool>, verbose: bool) -> Result<(), Error> {
+use rayon::prelude::*;
+/// Pulls the APK files of the Balatro application from a connected ADB device to a specified output directory.
+///
+/// # Parameters
+///
+/// - `adb_server`: A mutable reference to an `ADBServer` instance used to communicate with the ADB device.
+/// - `out`: An optional reference to a `String` specifying the output directory where the APKs will be saved.
+///   If `None`, defaults to "balapatch/balatro-apks".
+/// - `all`: An optional `bool` indicating whether to pull all APK splits. Defaults to `false` if `None`.
+/// - `verbose`: A `bool` that, if `true`, enables verbose output during the APK pulling process.
+///
+/// # Returns
+///
+/// Returns a `Result` which is:
+/// - `Ok(())` if the APKs are successfully pulled or if the Balatro application is not installed.
+/// - An `Error` if there is a failure in creating the output directory or pulling the APKs.
+pub fn pull_balatro(
+    mut adb_server: ADBServer,
+    out: &Option<String>,
+    all: Option<bool>,
+    verbose: bool,
+) -> Result<(), Error> {
+    let pb = progress::create_spinner("Checking for Balatro installation...");
+
     let apks_out = match &out {
         Some(folder) => folder,
         None => "balapatch/balatro-apks",
     };
 
-    std::fs::create_dir_all(apks_out)?;
+    pb.set_message("Creating output directory...");
+    std::fs::create_dir_all(apks_out).context("Failed to create output directory")?;
 
-    if check_balatro_install(&mut adb_server)?.0 {
-        adb::pull_app_apks(
-            &mut adb_server,
-            "com.playstack.balatro.android",
-            apks_out,
-            verbose,
-            all.unwrap_or(false),
-        )?;
-        println!("Successfully pulled Balatro APKs to {}", apks_out);
-    } else {
-        println!(
-            "Could not find a valid installation of Balatro on the connected device"
+    let (installed, paths) = check_balatro_install(&mut adb_server)?;
+    pb.finish_and_clear();
+
+    if installed {
+        let mp = progress::GLOBAL_MP.clone();
+        let main_pb = mp.add(ProgressBar::new(paths.len() as u64));
+
+        main_pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{msg} {bar:40} {pos}/{len}")
+                .expect("Progress style error"),
         );
+
+        main_pb.set_message("Pulling APKs...");
+        let all = all.unwrap_or(false);
+
+        // Wrap ADBServer in an Arc<Mutex> for thread-safe shared access
+        let adb_server = Arc::new(Mutex::new(adb_server));
+
+        // Track whether we've pulled `base.apk` and should stop
+        let mut pulled_base_apk = Arc::new(Mutex::new(false));
+
+        // Parallel APK pulling using Rayon
+        let pull_results: Result<(), Error> =
+            paths.par_iter().enumerate().try_for_each(|(idx, path)| {
+                if !all && *pulled_base_apk.lock().unwrap() {
+                    return Ok(()); // Skip if we've already pulled `base.apk` and `all` is false
+                }
+
+                let mp = progress::GLOBAL_MP.clone();
+                let _file_pb = mp.insert(idx, create_bytes_progress("Pulling APK", 0));
+
+                // Lock the ADBServer for thread-safe access
+                let mut adb_server = adb_server.lock().unwrap();
+
+                adb::pull_app_apks(
+                    &mut adb_server,
+                    "com.playstack.balatro.android",
+                    apks_out,
+                    verbose,
+                    all,
+                )?;
+
+                // Check if the pulled APK is `base.apk` and `all` is false
+                if !all && path.ends_with("base.apk") {
+                    // Set the progress bar to 1 step and mark `base.apk` as pulled
+                    main_pb.set_length(1);
+                    main_pb.inc(1);
+                    *pulled_base_apk.lock().unwrap() = true;
+                }
+
+                main_pb.inc(1);
+                Ok(())
+            });
+
+        pull_results?; // Propagate any errors from parallel execution
+        main_pb.finish_with_message("All APKs pulled");
     }
+
     Ok(())
 }
 
-pub fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Result<()> {
-    println!(
-        "{} -jar apktool.jar d {} -r -o {}",
-        crate::utils::return_java_install()
-            .1
-            .unwrap()
-            .join("bin")
-            .join("java.exe")
-            .to_str()
-            .unwrap(),
-        balatro_path,
-        out_path
-    );
+pub async fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Result<()> {
+    // println!(
+    //     "{} -jar apktool.jar d {} -r -o {}",
+    //     crate::utils::return_java_install()
+    //         .1
+    //         .unwrap()
+    //         .join("bin")
+    //         .join("java.exe")
+    //         .to_str()
+    //         .unwrap(),
+    //     balatro_path,
+    //     out_path
+    // );
 
-    if apk::get_apktool().is_ok() && crate::utils::return_java_install().0 {
+    if apk::get_apktool().await.is_ok() && crate::utils::return_java_install().0 {
         let output = std::process::Command::new(
             crate::utils::return_java_install()
                 .1

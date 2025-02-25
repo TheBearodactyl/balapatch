@@ -1,8 +1,13 @@
+use crate::progress::GLOBAL_MP;
+use indicatif::ProgressBar;
 use java_locator::*;
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Cursor, Read, Write, copy};
 use std::path::PathBuf;
 use std::{io::BufWriter, path::Path};
+use tokio_stream::StreamExt;
+use tracing::error;
 use which::which;
 
 /// A struct that provides in-memory string I/O capabilities
@@ -67,15 +72,30 @@ impl Default for StringBuf {
 ///
 /// * `url`: The URL to download the file from.
 /// * `save_path`: The path where the file should be saved.
-pub fn download_file(url: &str, save_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let response = reqwest::blocking::get(url)?;
+pub async fn download_file(url: &str, save_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let pb = GLOBAL_MP.add(ProgressBar::new_spinner());
+    pb.set_message("Downloading file...");
+
+    let response = reqwest::get(url).await?;
+    let total_size = response.content_length().unwrap_or(0);
+
+    let pb = crate::progress::create_bytes_progress("Downloading", total_size);
+
     let path = Path::new(save_path);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?; // ensure parent directory exists
+        std::fs::create_dir_all(parent)?;
     }
+
     let mut file = BufWriter::new(File::create(path)?);
-    let content = response.bytes()?;
-    copy(&mut content.as_ref(), &mut file)?;
+    let mut stream = response.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file.write_all(&chunk)?;
+        pb.inc(chunk.len() as u64);
+    }
+
+    pb.finish_with_message("Download complete!");
     Ok(())
 }
 
@@ -84,7 +104,7 @@ pub fn return_java_install() -> (bool, Option<PathBuf>) {
     match locate_java_home() {
         Ok(java_home) => (true, Some(PathBuf::from(locate_java_home().expect("Fuck")))),
         Err(e) => {
-            eprintln!("Java not found: {}", e);
+            error!("Java not found: {}", e);
             (false, None)
         }
     }
@@ -120,4 +140,97 @@ pub fn get_file_contents(file_path: &str) -> String {
         .expect("Unable to read file");
 
     contents
+}
+
+#[derive(Debug, Clone)]
+pub struct Either<T, U> {
+    val: EitherVariant<T, U>,
+}
+
+#[derive(Debug, Clone)]
+enum EitherVariant<T, U> {
+    Left(T),
+    Right(U),
+}
+
+impl<T, U> Either<T, U> {
+    pub fn new_left(value: T) -> Self {
+        Self {
+            val: EitherVariant::Left(value),
+        }
+    }
+
+    pub fn new_right(value: U) -> Self {
+        Self {
+            val: EitherVariant::Right(value),
+        }
+    }
+
+    pub fn is_left(&self) -> bool {
+        matches!(self.val, EitherVariant::Left(_))
+    }
+
+    pub fn is_right(&self) -> bool {
+        matches!(self.val, EitherVariant::Right(_))
+    }
+
+    pub fn get_left(self) -> Option<T> {
+        match self.val {
+            EitherVariant::Left(value) => Some(value),
+            EitherVariant::Right(_) => None,
+        }
+    }
+
+    pub fn get_right(self) -> Option<U> {
+        match self.val {
+            EitherVariant::Left(_) => None,
+            EitherVariant::Right(value) => Some(value),
+        }
+    }
+
+    pub fn into_left(self) -> Option<T> {
+        match self.val {
+            EitherVariant::Left(value) => Some(value),
+            EitherVariant::Right(_) => None,
+        }
+    }
+
+    pub fn into_right(self) -> Option<U> {
+        match self.val {
+            EitherVariant::Left(_) => None,
+            EitherVariant::Right(value) => Some(value),
+        }
+    }
+
+    pub fn into_result(self) -> Result<T, U> {
+        match self.val {
+            EitherVariant::Left(value) => Ok(value),
+            EitherVariant::Right(value) => Err(value),
+        }
+    }
+
+    pub fn into_result_reverse(self) -> Result<U, T> {
+        match self.val {
+            EitherVariant::Left(value) => Err(value),
+            EitherVariant::Right(value) => Ok(value),
+        }
+    }
+}
+
+impl<T, U: Default> From<Option<T>> for Either<T, U> {
+    fn from(opt: Option<T>) -> Self {
+        match opt {
+            Some(v) => Either::new_left(v),
+            None => Either::new_right(U::default()),
+        }
+    }
+}
+
+impl<T, U> From<Result<T, U>> for Either<T, U> {
+    fn from(res: Result<T, U>) -> Self {
+        match res {
+            Ok(v) => Either::new_left(v),
+            Err(e) => Either::new_right(e),
+        }
+    }
 }
