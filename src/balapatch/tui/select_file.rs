@@ -26,12 +26,12 @@ impl FilePathCompleter {
             .parent()
             .map(|p| {
                 if p.to_string_lossy() == "" {
-                    std::path::PathBuf::from(".")
+                    std::path::PathBuf::from("../../../../..")
                 } else {
                     p.to_owned()
                 }
             })
-            .unwrap_or_else(|| std::path::PathBuf::from("."));
+            .unwrap_or_else(|| std::path::PathBuf::from("../../../../.."));
 
         let scan_dir = if input.ends_with('/') {
             input_path

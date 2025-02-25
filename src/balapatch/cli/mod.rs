@@ -1,7 +1,9 @@
-use anyhow::Result as Anyhow;
-use clap::builder::TypedValueParser;
-use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::{Error, Parser, Subcommand};
+use clap::builder::TypedValueParser;
+use clap::error::ErrorKind;
+
+pub mod program;
+pub mod subcommands;
 
 #[derive(Clone)]
 struct SwitchValueParser;
@@ -127,33 +129,11 @@ pub enum BalatroSubcommands {
 #[derive(Subcommand, Debug)]
 pub enum AdbSubcommands {
     /// Connect to an ADB device
-    Connect {
-        #[command(subcommand)]
-        command: ConnectSubcommands,
-    },
+    Connect,
 
     /// Disconnect all ADB devices
     Disconnect,
 
     /// List all connected ADB devices
     ListDevices,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum ConnectSubcommands {
-    Wireless {
-        /// IP address of the device
-        #[arg(short = 'i', long, value_parser = Ipv4Parser)]
-        ip_addr: [u8; 4],
-
-        /// Port number for ADB connection
-        #[arg(short = 'p', long)]
-        port: u16,
-
-        /// ADB pairing PIN
-        #[arg(short = 'c', long)]
-        adb_pin: u32,
-    },
-
-    Wired,
 }

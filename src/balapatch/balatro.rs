@@ -1,10 +1,15 @@
-use crate::progress::create_bytes_progress;
-use crate::utils::StringBuf;
-use crate::{adb, apk, progress};
-use adb_client::{ADBDeviceExt, ADBServer};
-use anyhow::{Context, Error};
-use indicatif::{ProgressBar, ProgressStyle};
-use std::sync::{Arc, Mutex};
+use {
+    adb_client::{ADBDeviceExt, ADBServer},
+    anyhow::{Context, Error},
+    indicatif::{ProgressBar, ProgressStyle},
+    rayon::prelude::*,
+    std::sync::{Arc, Mutex},
+    tracing::info,
+};
+use crate::balapatch::{adb, apk};
+use crate::balapatch::tui::progress;
+use crate::balapatch::tui::progress::create_bytes_progress;
+use crate::balapatch::utils::string_buf::StringBuf;
 
 /// Checks if the Balatro application is installed on the connected ADB device and retrieves its APK paths.
 ///
@@ -42,7 +47,6 @@ pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Ve
     Ok((!paths.is_empty(), paths))
 }
 
-use rayon::prelude::*;
 /// Pulls the APK files of the Balatro application from a connected ADB device to a specified output directory.
 ///
 /// # Parameters
@@ -137,22 +141,9 @@ pub fn pull_balatro(
 }
 
 pub async fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Result<()> {
-    // println!(
-    //     "{} -jar apktool.jar d {} -r -o {}",
-    //     crate::utils::return_java_install()
-    //         .1
-    //         .unwrap()
-    //         .join("bin")
-    //         .join("java.exe")
-    //         .to_str()
-    //         .unwrap(),
-    //     balatro_path,
-    //     out_path
-    // );
-
-    if apk::get_apktool().await.is_ok() && crate::utils::return_java_install().0 {
+    if apk::apktool::get_apktool().await.is_ok() && crate::balapatch::utils::return_java_install().0 {
         let output = std::process::Command::new(
-            crate::utils::return_java_install()
+            crate::balapatch::utils::return_java_install()
                 .1
                 .unwrap()
                 .join("bin")
@@ -169,9 +160,9 @@ pub async fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Resul
         .expect("Failed to execute Apktool");
 
         if output.status.success() {
-            println!("Balatro unpacked successfully!");
+            info!("Balatro unpacked successfully!");
         } else {
-            println!(
+            info!(
                 "Apktool exited with non-zero status: {}",
                 String::from_utf8_lossy(&output.stderr)
             );

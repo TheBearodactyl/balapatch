@@ -1,5 +1,5 @@
-use crate::balatro;
-use crate::utils::Either;
+use crate::balapatch::balatro;
+use crate::balapatch::utils::Either;
 use adb_client::{ADBDeviceExt, ADBServer, ADBUSBDevice, DeviceState, RustADBError};
 use anyhow::{Context, Result, anyhow};
 use std::{
@@ -87,19 +87,6 @@ pub fn pull_adb_file(server: &mut ADBServer, file_path: &str, target_path: &str)
     Ok(())
 }
 
-pub fn install_apk(server: &mut ADBServer, apk_path: &str) -> Result<(), RustADBError> {
-    let mut device = server.get_device()?;
-    let apk_path = Path::new(apk_path);
-
-    if !apk_path.exists() {
-        return Err(RustADBError::ADBRequestFailed("fuck".to_string()));
-    } else {
-        device.install(apk_path)?;
-    }
-
-    Ok(())
-}
-
 pub fn pull_app_apks(
     server: &mut ADBServer,
     app_id: &str,
@@ -176,4 +163,12 @@ pub fn list_devices(server: &mut ADBServer) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod adb_tests {
+    use super::*;
+    use anyhow::Result;
+    use std::path::PathBuf;
+ 
 }
