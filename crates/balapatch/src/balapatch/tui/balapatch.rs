@@ -3,7 +3,7 @@ use crate::balapatch::tui::progress::{create_spinner, GLOBAL_MP};
 use crate::balapatch::tui::select_file::select_path_from_current_dir;
 use crate::balapatch::{adb, balatro};
 use adb_client::ADBServer;
-use balapatch_derive::EnumChoice;
+use balapatch_derive::EnumDisplay;
 use indicatif::ProgressBar;
 use inquire::error::InquireResult;
 use inquire::ui::{Attributes, Color, RenderConfig, Styled};
@@ -16,14 +16,14 @@ trait Variants<T: 'static> {
     const VARIANTS: &'static [T];
 }
 
-#[derive(Debug, Copy, Clone, EnumChoice)]
+#[derive(Debug, Copy, Clone, EnumDisplay)]
 #[allow(clippy::upper_case_acronyms)]
 enum BalapatchCommands {
     ADB,
     Balatro,
 }
 
-#[derive(Debug, Copy, Clone, EnumChoice)]
+#[derive(Debug, Copy, Clone, EnumDisplay)]
 enum AdbCommands {
     Connect,
     Disconnect,
@@ -31,7 +31,7 @@ enum AdbCommands {
     Check,
 }
 
-#[derive(Debug, Copy, Clone, EnumChoice)]
+#[derive(Debug, Copy, Clone, EnumDisplay)]
 enum BalatroCommands {
     Check,
     Validate,
