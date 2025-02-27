@@ -1,4 +1,5 @@
-use crate::balapatch::tui::progress::{GLOBAL_MP, create_spinner};
+use crate::balapatch::apk::zipalign::ZipAlign;
+use crate::balapatch::tui::progress::{create_spinner, GLOBAL_MP};
 use crate::balapatch::tui::select_file::select_path_from_current_dir;
 use crate::balapatch::{adb, balatro};
 use adb_client::ADBServer;
@@ -6,7 +7,8 @@ use balapatch_derive::EnumChoice;
 use indicatif::ProgressBar;
 use inquire::error::InquireResult;
 use inquire::ui::{Attributes, Color, RenderConfig, Styled};
-use inquire::{InquireError, MultiSelect, Select};
+use inquire::validator::{StringValidator, Validation};
+use inquire::{CustomUserError, InquireError, MultiSelect, Select, Text};
 use std::clone::Clone;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -32,6 +34,7 @@ enum AdbCommands {
 #[derive(Debug, Copy, Clone, EnumChoice)]
 enum BalatroCommands {
     Check,
+    Validate,
     Pull,
     Unpack,
     Mod,
@@ -47,8 +50,13 @@ impl Variants<AdbCommands> for AdbCommands {
 }
 
 impl Variants<BalatroCommands> for BalatroCommands {
-    const VARIANTS: &'static [BalatroCommands] =
-        &[Self::Check, Self::Pull, Self::Unpack, Self::Mod];
+    const VARIANTS: &'static [BalatroCommands] = &[
+        Self::Check,
+        Self::Pull,
+        Self::Unpack,
+        Self::Validate,
+        Self::Mod,
+    ];
 }
 
 fn enum_choice<E: Display + Debug + Copy + Clone + Variants<E> + 'static>(
@@ -66,16 +74,16 @@ fn balapatch_inquire_style() -> RenderConfig<'static> {
 
     let render_cfg = RenderConfig::default()
         .with_unselected_checkbox(style.clone().with_content("{ }"))
-        .with_selected_checkbox(style.clone().with_content("{X}"))
-        .with_prompt_prefix(style.clone().with_content("===>"))
-        .with_answered_prompt_prefix(
-            style
-                .clone()
-                .with_bg(Color::LightGreen)
-                .with_fg(Color::LightGreen)
-                .with_content(">>"),
-        )
-        .with_highlighted_option_prefix(style.clone().with_content("==>"));
+        .with_selected_checkbox(style.clone().with_content("{X}"));
+    // .with_prompt_prefix(style.clone().with_content("===>"))
+    // .with_answered_prompt_prefix(
+    //     style
+    //         .clone()
+    //         .with_bg(Color::LightGreen)
+    //         .with_fg(Color::LightGreen)
+    //         .with_content(">>"),
+    // )
+    // .with_highlighted_option_prefix(style.clone().with_content(">"));
 
     render_cfg
 }
@@ -124,6 +132,9 @@ pub async fn balapatch() -> InquireResult<()> {
                 BalatroCommands::Mod => {
                     // TODO: Actually implement the patcher with lovely :3
                     balatro_unpack(adb_server).await?;
+                }
+                BalatroCommands::Validate => {
+                    balatro_validate(adb_server).await?;
                 }
             }
         }
@@ -199,7 +210,7 @@ pub async fn balatro_unpack(mut adb_server: ADBServer) -> Result<(), InquireErro
     )
     .prompt()?;
 
-    let (change_apk_path, change_output_dir, verbose): (bool, bool, bool) = {
+    let (custom_apk_path, change_output_dir, verbose): (bool, bool, bool) = {
         (
             opts.iter().any(|s| *s == "APK Path"),
             opts.iter().any(|s| *s == "Output Directory"),
@@ -209,8 +220,8 @@ pub async fn balatro_unpack(mut adb_server: ADBServer) -> Result<(), InquireErro
 
     let spinner = create_spinner("Preparing to unpack Balatro...");
 
-    let apk_path = if change_apk_path {
-        inquire::Text::new("Please input the path to the Balatro APK:").prompt()?
+    let apk_path = if custom_apk_path {
+        Text::new("Please input the path to the Balatro APK:").prompt()?
     } else {
         "balapatch/balatro_apks".to_string()
     };
@@ -236,5 +247,69 @@ pub async fn balatro_unpack(mut adb_server: ADBServer) -> Result<(), InquireErro
     } else {
         spinner.finish_with_message("Invalid input file");
     }
+    Ok(())
+}
+
+#[derive(Clone)]
+struct AlignmentValidator;
+
+impl StringValidator for AlignmentValidator {
+    fn validate(&self, input: &str) -> Result<Validation, CustomUserError> {
+        if input.chars().all(|a| a.is_ascii_digit()) {
+            Ok(Validation::Valid)
+        } else {
+            Ok(Validation::Invalid("Fuck".into()))
+        }
+    }
+}
+
+pub async fn balatro_validate(mut adb_server: ADBServer) -> Result<(), InquireError> {
+    let unpack_opts = vec!["APK Path", "Output Directory", "Verbose"];
+    let opts = MultiSelect::new(
+        "Please select any custom options for unpacking:",
+        unpack_opts.clone(),
+    )
+    .prompt()?;
+
+    let (change_apk_path, change_output_dir, verbose): (bool, bool, bool) = {
+        (
+            opts.iter().any(|s| *s == "APK Path"),
+            opts.iter().any(|s| *s == "Output Directory"),
+            opts.iter().any(|s| *s == "Verbose"),
+        )
+    };
+
+    let spinner = create_spinner("Preparing to validate Balatro...");
+    let apk_path = if change_apk_path {
+        Text::new("Please input the path to the Balatro APK:").prompt()?
+    } else {
+        "balapatch/balatro_apks".to_string()
+    };
+
+    let out_dir = if change_output_dir {
+        select_path_from_current_dir("Please select a directory...")?
+    } else {
+        "balapatch/balatro_unpacked".to_string()
+    };
+
+    balatro::pull_balatro(&mut adb_server, &Some(apk_path.clone()), None, verbose)
+        .expect("Failed to pull");
+
+    let apk_file = format!("{}\\base.apk", apk_path);
+    let alignment = Text::new("Alignment:")
+        .with_validator(AlignmentValidator)
+        .prompt()?;
+    let zipalign = ZipAlign::new(
+        apk_file.into(),
+        Some(out_dir.into()),
+        alignment.parse::<u64>().expect("Failed to parse alignment"),
+    );
+
+    if zipalign.verify_zip(verbose).is_ok() {
+        spinner.finish_with_message("APK is aligned correctly");
+    } else {
+        spinner.finish_with_message("APK is not aligned correctly");
+    }
+
     Ok(())
 }

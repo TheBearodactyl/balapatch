@@ -84,12 +84,12 @@ impl FromStr for Ipv4Port {
 //     if parts.len() != 4 {
 //         return false;
 //     }
-// 
+//
 //     for part in parts {
 //         if part.is_empty() || !part.chars().all(|c| c.is_ascii_digit()) {
 //             return false;
 //         }
-// 
+//
 //         match part.parse::<u32>() {
 //             Ok(num) => {
 //                 if !(0..=255).contains(&num) {
@@ -99,10 +99,10 @@ impl FromStr for Ipv4Port {
 //             Err(_) => return false,
 //         }
 //     }
-// 
+//
 //     true
 // }
-// 
+//
 // fn is_valid_port(port_str: &str) -> bool {
 //     match port_str.parse::<u32>() {
 //         Ok(port) => (1..=65535).contains(&port),
