@@ -27,12 +27,12 @@ pub fn choose_connection_mode() -> InquireResult<ConnectMode> {
         ConnectMode::Wired => {
             info!("Sadly, wired connection doesn't work at the moment :(");
             info!("Defaulting to wireless!");
-            crate::balapatch::cli::subcommands::adb_connect::adb_connect_wireless().expect("fuck");
+            crate::balapatch::adb::adb_connect_wireless().expect("fuck");
 
             Ok(ConnectMode::Wireless)
         }
         ConnectMode::Wireless => {
-            crate::balapatch::cli::subcommands::adb_connect::adb_connect_wireless().expect("fuck");
+            crate::balapatch::adb::adb_connect_wireless().expect("fuck");
 
             Ok(ConnectMode::Wireless)
         }

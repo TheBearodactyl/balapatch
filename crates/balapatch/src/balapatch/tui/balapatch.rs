@@ -1,10 +1,11 @@
-use crate::balapatch::tui::progress::{create_spinner, GLOBAL_MP};
+use crate::balapatch::tui::progress::{GLOBAL_MP, create_spinner};
 use crate::balapatch::tui::select_file::select_path_from_current_dir;
 use crate::balapatch::{adb, balatro};
 use adb_client::ADBServer;
 use balapatch_derive::EnumChoice;
 use indicatif::ProgressBar;
 use inquire::error::InquireResult;
+use inquire::ui::{Attributes, Color, RenderConfig, Styled};
 use inquire::{InquireError, MultiSelect, Select};
 use std::clone::Clone;
 use std::fmt::{Debug, Display, Formatter};
@@ -14,8 +15,9 @@ trait Variants<T: 'static> {
 }
 
 #[derive(Debug, Copy, Clone, EnumChoice)]
+#[allow(clippy::upper_case_acronyms)]
 enum BalapatchCommands {
-    Adb,
+    ADB,
     Balatro,
 }
 
@@ -23,7 +25,8 @@ enum BalapatchCommands {
 enum AdbCommands {
     Connect,
     Disconnect,
-    ListDevices,
+    List,
+    Check,
 }
 
 #[derive(Debug, Copy, Clone, EnumChoice)]
@@ -31,18 +34,21 @@ enum BalatroCommands {
     Check,
     Pull,
     Unpack,
+    Mod,
 }
 
 impl Variants<BalapatchCommands> for BalapatchCommands {
-    const VARIANTS: &'static [BalapatchCommands] = &[Self::Adb, Self::Balatro];
+    const VARIANTS: &'static [BalapatchCommands] = &[Self::ADB, Self::Balatro];
 }
 
 impl Variants<AdbCommands> for AdbCommands {
-    const VARIANTS: &'static [AdbCommands] = &[Self::Connect, Self::Disconnect, Self::ListDevices];
+    const VARIANTS: &'static [AdbCommands] =
+        &[Self::Connect, Self::Disconnect, Self::List, Self::Check];
 }
 
 impl Variants<BalatroCommands> for BalatroCommands {
-    const VARIANTS: &'static [BalatroCommands] = &[Self::Check, Self::Pull, Self::Unpack];
+    const VARIANTS: &'static [BalatroCommands] =
+        &[Self::Check, Self::Pull, Self::Unpack, Self::Mod];
 }
 
 fn enum_choice<E: Display + Debug + Copy + Clone + Variants<E> + 'static>(
@@ -53,12 +59,34 @@ fn enum_choice<E: Display + Debug + Copy + Clone + Variants<E> + 'static>(
     Ok(answer)
 }
 
+fn balapatch_inquire_style() -> RenderConfig<'static> {
+    let style: Styled<String> = Styled::default()
+        .with_fg(Color::LightMagenta)
+        .with_attr(Attributes::BOLD);
+
+    let render_cfg = RenderConfig::default()
+        .with_unselected_checkbox(style.clone().with_content("{ }"))
+        .with_selected_checkbox(style.clone().with_content("{X}"))
+        .with_prompt_prefix(style.clone().with_content("===>"))
+        .with_answered_prompt_prefix(
+            style
+                .clone()
+                .with_bg(Color::LightGreen)
+                .with_fg(Color::LightGreen)
+                .with_content(">>"),
+        )
+        .with_highlighted_option_prefix(style.clone().with_content("==>"));
+
+    render_cfg
+}
+
 pub async fn balapatch() -> InquireResult<()> {
+    inquire::set_global_render_config(balapatch_inquire_style());
     let mut adb_server = ADBServer::default();
     let init_actions = enum_choice::<BalapatchCommands>("Choose an action:")?;
 
     match init_actions {
-        BalapatchCommands::Adb => {
+        BalapatchCommands::ADB => {
             let adb_actions = enum_choice::<AdbCommands>("Available ADB actions:")?;
 
             match adb_actions {
@@ -68,8 +96,15 @@ pub async fn balapatch() -> InquireResult<()> {
                 AdbCommands::Disconnect => {
                     balatro_adb_disconnect(&mut adb_server)?;
                 }
-                AdbCommands::ListDevices => {
+                AdbCommands::List => {
                     balatro_adb_list(&mut adb_server)?;
+                }
+                AdbCommands::Check => {
+                    if adb_server.get_device().is_ok() {
+                        println!("Found a valid device!");
+                    } else {
+                        println!("Couldn't find a valid device");
+                    }
                 }
             }
         }
@@ -84,6 +119,10 @@ pub async fn balapatch() -> InquireResult<()> {
                     balatro_pull(&mut adb_server)?;
                 }
                 BalatroCommands::Unpack => {
+                    balatro_unpack(adb_server).await?;
+                }
+                BalatroCommands::Mod => {
+                    // TODO: Actually implement the patcher with lovely :3
                     balatro_unpack(adb_server).await?;
                 }
             }
@@ -171,7 +210,7 @@ pub async fn balatro_unpack(mut adb_server: ADBServer) -> Result<(), InquireErro
     let spinner = create_spinner("Preparing to unpack Balatro...");
 
     let apk_path = if change_apk_path {
-        select_path_from_current_dir("Please select the path that contains the pulled `base.apk`")?
+        inquire::Text::new("Please input the path to the Balatro APK:").prompt()?
     } else {
         "balapatch/balatro_apks".to_string()
     };
