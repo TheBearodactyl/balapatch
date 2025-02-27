@@ -7,7 +7,7 @@ pub struct MultiProgressWriter {
 }
 
 impl MultiProgressWriter {
-    pub fn new(mp: Arc<MultiProgress>) -> Self {
+    pub fn _new(mp: Arc<MultiProgress>) -> Self {
         Self { mp }
     }
 }

@@ -252,6 +252,7 @@ version = "0.1.0"
 dependencies = [
  "adb_client",
  "anyhow",
+ "balapatch_derive",
  "clap",
  "fuzzy-matcher",
  "indicatif",
@@ -262,14 +263,27 @@ dependencies = [
  "rayon",
  "reqwest",
  "rusb",
+ "serde",
+ "serde_ignored",
  "smali",
  "tokio",
  "tokio-stream",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "usb_enumeration",
+ "walkdir",
  "which 7.0.2",
  "zip",
+]
+
+[[package]]
+name = "balapatch_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

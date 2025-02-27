@@ -1,7 +1,7 @@
 use inquire::Select;
 use inquire::error::InquireResult;
 use std::fmt::{Display, Formatter};
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Debug, Copy, Clone)]
 pub enum ConnectMode {

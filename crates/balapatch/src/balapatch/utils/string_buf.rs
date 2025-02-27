@@ -17,7 +17,7 @@ impl StringBuf {
     /// Creates a reader that provides read access to the current buffer contents
     ///
     /// The reader will read from the start of the buffer and cannot modify it
-    pub fn reader(&self) -> impl Read + '_ {
+    pub fn _reader(&self) -> impl Read + '_ {
         Cursor::new(&self.buffer)
     }
 
@@ -25,7 +25,7 @@ impl StringBuf {
     ///
     /// # Errors
     /// Returns an error if the buffer contains invalid UTF-8
-    pub fn into_string(self) -> Result<String, std::string::FromUtf8Error> {
+    pub fn _into_string(self) -> Result<String, std::string::FromUtf8Error> {
         String::from_utf8(self.buffer)
     }
 

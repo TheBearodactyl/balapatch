@@ -1,9 +1,8 @@
 use crate::balapatch::balatro;
-use crate::balapatch::utils::Either;
-use adb_client::{ADBDeviceExt, ADBServer, ADBUSBDevice, DeviceState, RustADBError};
+use crate::balapatch::utils::misc::Either;
+use adb_client::{ADBServer, ADBUSBDevice, DeviceState};
 use anyhow::{Context, Result, anyhow};
 use std::{
-    fmt::Display,
     fs::File,
     net::{Ipv4Addr, SocketAddrV4},
     path::Path,
@@ -33,6 +32,7 @@ fn format_device_state(state: &DeviceState) -> String {
 pub type WirelessIp = ([u8; 4], u16);
 pub type WiredIds = (u16, u16);
 
+#[allow(unused)]
 #[derive(Debug, PartialEq)]
 pub enum ConnectionMode {
     Wireless(WirelessIp),
@@ -61,37 +61,37 @@ pub fn get_adb_connection(connection: ConnectionMode) -> Result<Either<ADBServer
     }
 }
 
-pub fn check_adb_file_exists(server: &mut ADBServer, file_path: &str) -> Result<bool> {
-    Ok(server
-        .get_device()?
-        .shell_command(&["test", file_path], &mut std::io::stdout())
-        .is_ok())
-}
+// pub fn check_adb_file_exists(server: &mut ADBServer, file_path: &str) -> Result<bool> {
+//     Ok(server
+//         .get_device()?
+//         .shell_command(&["test", file_path], &mut std::io::stdout())
+//         .is_ok())
+// }
 
-pub fn pull_adb_file(server: &mut ADBServer, file_path: &str, target_path: &str) -> Result<()> {
-    let mut device = &mut server
-        .get_device()
-        .context("Failed to connect to ADB device")?;
-    let local_path = Path::new(target_path);
-
-    if let Some(parent_dir) = local_path.parent() {
-        std::fs::create_dir_all(parent_dir).context("Failed to create parent directory")?;
-    }
-
-    let mut file = File::create(local_path).context("Failed to create local file")?;
-
-    device
-        .pull(&target_path, &mut file)
-        .context("Failed to pull file from ADB")?;
-
-    Ok(())
-}
+// pub fn pull_adb_file(server: &mut ADBServer, file_path: &str, target_path: &str) -> Result<()> {
+//     let mut device = &mut server
+//         .get_device()
+//         .context("Failed to connect to ADB device")?;
+//     let local_path = Path::new(target_path);
+//
+//     if let Some(parent_dir) = local_path.parent() {
+//         std::fs::create_dir_all(parent_dir).context("Failed to create parent directory")?;
+//     }
+//
+//     let mut file = File::create(local_path).context("Failed to create local file")?;
+//
+//     device
+//         .pull(&target_path, &mut file)
+//         .context("Failed to pull file from ADB")?;
+//
+//     Ok(())
+// }
 
 pub fn pull_app_apks(
     server: &mut ADBServer,
-    app_id: &str,
+    _app_id: &str,
     output_dir: &str,
-    verbose: bool,
+    _verbose: bool,
     all: bool,
 ) -> Result<()> {
     let (installed, paths) = balatro::check_balatro_install(server)?;
@@ -163,12 +163,4 @@ pub fn list_devices(server: &mut ADBServer) -> Result<()> {
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod adb_tests {
-    use super::*;
-    use anyhow::Result;
-    use std::path::PathBuf;
- 
 }

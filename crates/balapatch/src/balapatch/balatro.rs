@@ -1,4 +1,17 @@
 use {
+    crate::{
+        balapatch::{
+            tui::{
+                progress::{
+                    self,
+                    create_bytes_progress
+                }
+            },
+            utils::string_buf::StringBuf,
+            adb,
+            apk
+        }
+    },
     adb_client::{ADBDeviceExt, ADBServer},
     anyhow::{Context, Error},
     indicatif::{ProgressBar, ProgressStyle},
@@ -6,10 +19,6 @@ use {
     std::sync::{Arc, Mutex},
     tracing::info,
 };
-use crate::balapatch::{adb, apk};
-use crate::balapatch::tui::progress;
-use crate::balapatch::tui::progress::create_bytes_progress;
-use crate::balapatch::utils::string_buf::StringBuf;
 
 /// Checks if the Balatro application is installed on the connected ADB device and retrieves its APK paths.
 ///
@@ -63,10 +72,10 @@ pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Ve
 /// - `Ok(())` if the APKs are successfully pulled or if the Balatro application is not installed.
 /// - An `Error` if there is a failure in creating the output directory or pulling the APKs.
 pub fn pull_balatro(
-    mut adb_server: ADBServer,
-    out: &Option<String>,
-    all: Option<bool>,
-    verbose: bool,
+	adb_server: &mut ADBServer,
+	out: &Option<String>,
+	all: Option<bool>,
+	verbose: bool,
 ) -> Result<(), Error> {
     let pb = progress::create_spinner("Checking for Balatro installation...");
 
@@ -78,7 +87,7 @@ pub fn pull_balatro(
     pb.set_message("Creating output directory...");
     std::fs::create_dir_all(apks_out).context("Failed to create output directory")?;
 
-    let (installed, paths) = check_balatro_install(&mut adb_server)?;
+    let (installed, paths) = check_balatro_install(adb_server)?;
     pb.finish_and_clear();
 
     if installed {
@@ -98,7 +107,7 @@ pub fn pull_balatro(
         let adb_server = Arc::new(Mutex::new(adb_server));
 
         // Track whether we've pulled `base.apk` and should stop
-        let mut pulled_base_apk = Arc::new(Mutex::new(false));
+        let pulled_base_apk = Arc::new(Mutex::new(false));
 
         // Parallel APK pulling using Rayon
         let pull_results: Result<(), Error> =
@@ -141,9 +150,10 @@ pub fn pull_balatro(
 }
 
 pub async fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Result<()> {
-    if apk::apktool::get_apktool().await.is_ok() && crate::balapatch::utils::return_java_install().0 {
+    if apk::apktool::get_apktool().await.is_ok() && crate::balapatch::utils::misc::return_java_install().0
+    {
         let output = std::process::Command::new(
-            crate::balapatch::utils::return_java_install()
+            crate::balapatch::utils::misc::return_java_install()
                 .1
                 .unwrap()
                 .join("bin")

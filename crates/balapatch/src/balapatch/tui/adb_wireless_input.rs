@@ -1,14 +1,9 @@
 use anyhow::anyhow;
 use inquire::error::InquireResult;
-use inquire::ui::RenderConfig;
 use inquire::validator::{StringValidator, Validation};
-use inquire::{Autocomplete, CustomType, CustomUserError, Text};
+use inquire::{CustomType, CustomUserError, Text};
 use std::fmt::{Display, Formatter};
-use std::io::Error;
-use std::net::AddrParseError;
 use std::str::FromStr;
-use inquire::autocompletion::Replacement;
-use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct Ipv4Port {
@@ -84,36 +79,36 @@ impl FromStr for Ipv4Port {
     }
 }
 
-fn is_valid_ip(ip_str: &str) -> bool {
-    let parts = ip_str.split('.').collect::<Vec<&str>>();
-    if parts.len() != 4 {
-        return false;
-    }
-
-    for part in parts {
-        if part.is_empty() || !part.chars().all(|c| c.is_ascii_digit()) {
-            return false;
-        }
-
-        match part.parse::<u32>() {
-            Ok(num) => {
-                if !(0..=255).contains(&num) {
-                    return false;
-                }
-            }
-            Err(_) => return false,
-        }
-    }
-
-    true
-}
-
-fn is_valid_port(port_str: &str) -> bool {
-    match port_str.parse::<u32>() {
-        Ok(port) => (1..=65535).contains(&port),
-        Err(_) => false,
-    }
-}
+// fn is_valid_ip(ip_str: &str) -> bool {
+//     let parts = ip_str.split('.').collect::<Vec<&str>>();
+//     if parts.len() != 4 {
+//         return false;
+//     }
+// 
+//     for part in parts {
+//         if part.is_empty() || !part.chars().all(|c| c.is_ascii_digit()) {
+//             return false;
+//         }
+// 
+//         match part.parse::<u32>() {
+//             Ok(num) => {
+//                 if !(0..=255).contains(&num) {
+//                     return false;
+//                 }
+//             }
+//             Err(_) => return false,
+//         }
+//     }
+// 
+//     true
+// }
+// 
+// fn is_valid_port(port_str: &str) -> bool {
+//     match port_str.parse::<u32>() {
+//         Ok(port) => (1..=65535).contains(&port),
+//         Err(_) => false,
+//     }
+// }
 
 #[derive(Clone)]
 struct PinValidator;

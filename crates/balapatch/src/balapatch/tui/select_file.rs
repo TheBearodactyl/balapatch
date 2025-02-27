@@ -1,8 +1,4 @@
-use std::{
-    io::ErrorKind,
-    path::{self, Path},
-};
-
+use std::io::ErrorKind;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use inquire::{Autocomplete, CustomUserError, InquireError, Text, autocompletion::Replacement};
 

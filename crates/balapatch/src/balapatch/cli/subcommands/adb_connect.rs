@@ -1,10 +1,8 @@
 use crate::balapatch::adb::{ConnectionMode, get_adb_connection};
 use crate::balapatch::tui::progress::create_spinner;
-use crate::balapatch::tui::adb_wireless_input;
 use crate::balapatch::tui::adb_wireless_input::adb_wireless_input;
 use adb_client::ADBServer;
 use anyhow::{Context, Error};
-use clap::builder::Str;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use tracing::info;
 
