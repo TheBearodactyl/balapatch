@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::{self, *};
 use syn::{parse_quote, Fields, Variant};
@@ -11,10 +11,10 @@ pub(crate) fn repr_ty(
     repr_attrs: Vec<Attribute>,
     variants: &Punctuated<Variant, token::Comma>,
 ) -> Result<(Path, TokenStream2)> {
-    let reprs: Vec<syn::Meta> = repr_attrs
+    let reprs: Vec<Meta> = repr_attrs
         .iter()
         .flat_map(|attr| {
-            attr.parse_args_with(Punctuated::<syn::Meta, syn::Token![.]>::parse_terminated)
+            attr.parse_args_with(Punctuated::<Meta, Token![.]>::parse_terminated)
                 .unwrap_or_default()
         })
         .collect();
@@ -33,7 +33,7 @@ pub(crate) fn repr_ty(
     ];
 
     let repr_ty = reprs.iter().find_map(|repr| {
-        if let syn::Meta::Path(path) = repr {
+        if let Meta::Path(path) = repr {
             if path.is_ident("C") {
                 Some(parse_quote!(::core::primitive::u32))
             } else if valid_int_reprs.iter().any(|&t| path.is_ident(t)) {
@@ -333,7 +333,7 @@ fn process_derive_attrs(derive_attrs: Vec<Attribute>) -> (bool, bool, bool, Vec<
     (has_debug, has_serialize, has_deserialize, derive_items)
 }
 
-fn generate_display_impl(enum_name: &syn::Ident, has_debug: bool) -> TokenStream2 {
+pub(crate) fn generate_display_impl(enum_name: &syn::Ident, has_debug: bool) -> TokenStream2 {
     if has_debug {
         quote! {
             impl std::fmt::Display for #enum_name {
@@ -349,12 +349,100 @@ fn generate_display_impl(enum_name: &syn::Ident, has_debug: bool) -> TokenStream
 
 pub(crate) fn enum_display_impl(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
-    let ident = &derive_input.ident;
+    let name = derive_input.ident;
 
+    let enum_display = match derive_input.data {
+        syn::Data::Enum(ref data_enum) => {
+            let variants = data_enum.variants.iter().map(|variant| {
+                let var_ident = &variant.ident;
+                let var_name = var_ident.to_string();
+                let chars: Vec<char> = var_name.chars().collect();
+
+                let formatted =
+                    var_name
+                        .chars()
+                        .enumerate()
+                        .fold(String::new(), |mut acc, (i, c)| {
+                            if i > 0 && c.is_uppercase() {
+                                let prev = chars[i - 1];
+                                if prev.is_lowercase() {
+                                    acc.push(' ');
+                                } else if i + 1 < chars.len() {
+                                    let next = chars[i + 1];
+                                    if next.is_lowercase() {
+                                        acc.push(' ');
+                                    }
+                                }
+                            }
+
+                            acc.push(c);
+                            acc
+                        });
+
+                let formatted_lit = syn::LitStr::new(&formatted, var_ident.span());
+
+                quote! {
+                    #name::#var_ident => write!(f, "{}", #formatted_lit),
+                }
+            });
+
+            quote! {
+                impl std::fmt::Display for #name {
+                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        match self {
+                            #(#variants)*
+                        }
+                    }
+                }
+            }
+        }
+        _ => panic!("EDisplay can only be derived for enums"),
+    };
+
+    enum_display.into()
+}
+
+pub(crate) fn enum_choice_impl(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let enum_name = &input.ident;
+
+    let variants = if let Data::Enum(data_enum) = &input.data {
+        data_enum
+            .variants
+            .iter()
+            .map(|v| &v.ident)
+            .collect::<Vec<_>>()
+    } else {
+        panic!("EnumChoice can only be derived for enums");
+    };
+
+    let module_name = format_ident!("__enum_choice_for_{}", enum_name.to_string().to_lowercase());
     let expanded = quote! {
-        impl std::fmt::Display for #ident {
-            fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-                write!(f, "{self:?}")
+        mod #module_name {
+            use super::*;
+
+            #[doc(hidden)]
+            pub trait Variants<T: 'static> {
+                const VARIANTS: &'static [T];
+            }
+
+            impl Variants<#enum_name> for #enum_name {
+                const VARIANTS: &'static [#enum_name] = &[#(#enum_name::#variants),*];
+            }
+
+            pub use Variants as VariantsTrait;
+        }
+
+        impl #enum_name {
+            pub fn choice(msg: &str) -> ::inquire::error::InquireResult<Self>
+            where
+                Self: ::std::fmt::Display + ::std::fmt::Debug + Copy + Clone + 'static,
+            {
+
+                let answer: Self = ::inquire::Select::new(msg, <Self as #module_name::VariantsTrait<Self>>::VARIANTS.to_vec())
+                .prompt()?;
+
+                Ok(answer)
             }
         }
     };

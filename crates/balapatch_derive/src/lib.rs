@@ -1,6 +1,6 @@
 #![allow(non_snake_case, unused)]
 
-use crate::enum_macros::enum_display_impl;
+use crate::enum_macros::{enum_choice_impl, enum_display_impl};
 use proc_macro::*;
 use syn::parse_macro_input;
 
@@ -9,6 +9,11 @@ mod enum_macros;
 #[proc_macro_derive(EnumDisplay)]
 pub fn derive_enum_choice(input: TokenStream) -> TokenStream {
     enum_display_impl(input)
+}
+
+#[proc_macro_derive(EnumChoice)]
+pub fn derive_variants(input: TokenStream) -> TokenStream {
+    enum_choice_impl(input)
 }
 
 #[proc_macro_attribute]

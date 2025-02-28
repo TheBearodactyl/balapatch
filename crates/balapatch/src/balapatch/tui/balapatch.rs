@@ -3,7 +3,7 @@ use crate::balapatch::tui::progress::{create_spinner, GLOBAL_MP};
 use crate::balapatch::tui::select_file::select_path_from_current_dir;
 use crate::balapatch::{adb, balatro};
 use adb_client::ADBServer;
-use balapatch_derive::EnumDisplay;
+use balapatch_derive::{EnumChoice, EnumDisplay};
 use indicatif::ProgressBar;
 use inquire::error::InquireResult;
 use inquire::ui::{Attributes, Color, RenderConfig, Styled};
@@ -12,59 +12,28 @@ use inquire::{CustomUserError, InquireError, MultiSelect, Select, Text};
 use std::clone::Clone;
 use std::fmt::{Debug, Display, Formatter};
 
-trait Variants<T: 'static> {
-    const VARIANTS: &'static [T];
-}
-
-#[derive(Debug, Copy, Clone, EnumDisplay)]
+#[derive(Debug, Copy, Clone, EnumDisplay, EnumChoice)]
 #[allow(clippy::upper_case_acronyms)]
 enum BalapatchCommands {
-    ADB,
+    ADBActions,
     Balatro,
 }
 
-#[derive(Debug, Copy, Clone, EnumDisplay)]
+#[derive(Debug, Copy, Clone, EnumDisplay, EnumChoice)]
 enum AdbCommands {
-    Connect,
-    Disconnect,
-    List,
-    Check,
+    ConnectDevice,
+    KillServer,
+    ListDevices,
+    CheckConnection,
 }
 
-#[derive(Debug, Copy, Clone, EnumDisplay)]
+#[derive(Debug, Copy, Clone, EnumDisplay, EnumChoice)]
 enum BalatroCommands {
     Check,
-    Validate,
+    ValidateAPKs,
     Pull,
     Unpack,
     Mod,
-}
-
-impl Variants<BalapatchCommands> for BalapatchCommands {
-    const VARIANTS: &'static [BalapatchCommands] = &[Self::ADB, Self::Balatro];
-}
-
-impl Variants<AdbCommands> for AdbCommands {
-    const VARIANTS: &'static [AdbCommands] =
-        &[Self::Connect, Self::Disconnect, Self::List, Self::Check];
-}
-
-impl Variants<BalatroCommands> for BalatroCommands {
-    const VARIANTS: &'static [BalatroCommands] = &[
-        Self::Check,
-        Self::Pull,
-        Self::Unpack,
-        Self::Validate,
-        Self::Mod,
-    ];
-}
-
-fn enum_choice<E: Display + Debug + Copy + Clone + Variants<E> + 'static>(
-    msg: &str,
-) -> InquireResult<E> {
-    let answer: E = Select::new(msg, E::VARIANTS.to_vec()).prompt()?;
-
-    Ok(answer)
 }
 
 fn balapatch_inquire_style() -> RenderConfig<'static> {
@@ -75,15 +44,6 @@ fn balapatch_inquire_style() -> RenderConfig<'static> {
     let render_cfg = RenderConfig::default()
         .with_unselected_checkbox(style.clone().with_content("{ }"))
         .with_selected_checkbox(style.clone().with_content("{X}"));
-    // .with_prompt_prefix(style.clone().with_content("===>"))
-    // .with_answered_prompt_prefix(
-    //     style
-    //         .clone()
-    //         .with_bg(Color::LightGreen)
-    //         .with_fg(Color::LightGreen)
-    //         .with_content(">>"),
-    // )
-    // .with_highlighted_option_prefix(style.clone().with_content(">"));
 
     render_cfg
 }
@@ -91,23 +51,23 @@ fn balapatch_inquire_style() -> RenderConfig<'static> {
 pub async fn balapatch() -> InquireResult<()> {
     inquire::set_global_render_config(balapatch_inquire_style());
     let mut adb_server = ADBServer::default();
-    let init_actions = enum_choice::<BalapatchCommands>("Choose an action:")?;
+    let init_actions = BalapatchCommands::choice("Choose an action:")?;
 
     match init_actions {
-        BalapatchCommands::ADB => {
-            let adb_actions = enum_choice::<AdbCommands>("Available ADB actions:")?;
+        BalapatchCommands::ADBActions => {
+            let adb_actions = AdbCommands::choice("Available ADB actions:")?;
 
             match adb_actions {
-                AdbCommands::Connect => {
+                AdbCommands::ConnectDevice => {
                     crate::balapatch::tui::mode_select::choose_connection_mode()?;
                 }
-                AdbCommands::Disconnect => {
+                AdbCommands::KillServer => {
                     balatro_adb_disconnect(&mut adb_server)?;
                 }
-                AdbCommands::List => {
+                AdbCommands::ListDevices => {
                     balatro_adb_list(&mut adb_server)?;
                 }
-                AdbCommands::Check => {
+                AdbCommands::CheckConnection => {
                     if adb_server.get_device().is_ok() {
                         println!("Found a valid device!");
                     } else {
@@ -117,7 +77,7 @@ pub async fn balapatch() -> InquireResult<()> {
             }
         }
         BalapatchCommands::Balatro => {
-            let balatro_actions = enum_choice::<BalatroCommands>("You can do the following:")?;
+            let balatro_actions = BalatroCommands::choice("You can do the following:")?;
 
             match balatro_actions {
                 BalatroCommands::Check => {
@@ -133,7 +93,7 @@ pub async fn balapatch() -> InquireResult<()> {
                     // TODO: Actually implement the patcher with lovely :3
                     balatro_unpack(adb_server).await?;
                 }
-                BalatroCommands::Validate => {
+                BalatroCommands::ValidateAPKs => {
                     balatro_validate(adb_server).await?;
                 }
             }
