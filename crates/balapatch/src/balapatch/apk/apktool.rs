@@ -1,15 +1,16 @@
 use anyhow::{anyhow, Result};
+use std::path::PathBuf;
 use tracing::info;
 
-pub async fn has_apktool() -> Result<()> {
-    if which::which("apktool").is_err() {
-        return Err(anyhow!("failed to find an apktool install..."));
+pub async fn has_apktool() -> Result<PathBuf, ()> {
+    if let Ok(apktool_path) = which::which("apktool") {
+        Ok(apktool_path)
+    } else {
+        Err(())
     }
-    
-    Ok(())
 }
 
-pub async fn get_apktool() -> Result<()> {
+pub async fn get_apktool() -> anyhow::Result<(), String> {
     if has_apktool().await.is_err() {
         crate::balapatch::utils::misc::download_file(
             "https://github.com/iBotPeaches/Apktool/releases/download/v2.11.0/apktool_2.11.0.jar",
@@ -18,7 +19,7 @@ pub async fn get_apktool() -> Result<()> {
         .await
         .expect("Failed to download Apktool");
 
-        if std::fs::exists("../../balapatch/apktool.jar")? {
+        if std::fs::exists("../../balapatch/apktool.jar").is_ok() {
             info!("Apktool downloaded successfully!");
         }
     } else {
