@@ -6,5 +6,5 @@ mod balapatch;
 
 #[tokio::main]
 async fn main() -> InquireResult<()> {
-    balapatch::tui::balapatch::balapatch().await
+    crate::balapatch::tui::balapatch::balapatch().await
 }

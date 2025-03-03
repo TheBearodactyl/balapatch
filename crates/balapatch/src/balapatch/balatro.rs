@@ -1,16 +1,9 @@
+use std::path::PathBuf;
 use {
-    crate::{
-        balapatch::{
-            tui::{
-                progress::{
-                    self,
-                    create_bytes_progress
-                }
-            },
-            utils::string_buf::StringBuf,
-            adb,
-            apk
-        }
+    crate::balapatch::{
+        adb, apk,
+        tui::progress::{self, create_bytes_progress},
+        utils::string_buf::StringBuf,
     },
     adb_client::{ADBDeviceExt, ADBServer},
     anyhow::{Context, Error},
@@ -72,10 +65,10 @@ pub fn check_balatro_install(server: &mut ADBServer) -> anyhow::Result<(bool, Ve
 /// - `Ok(())` if the APKs are successfully pulled or if the Balatro application is not installed.
 /// - An `Error` if there is a failure in creating the output directory or pulling the APKs.
 pub fn pull_balatro(
-	adb_server: &mut ADBServer,
-	out: &Option<String>,
-	all: Option<bool>,
-	verbose: bool,
+    adb_server: &mut ADBServer,
+    out: &Option<String>,
+    all: Option<bool>,
+    verbose: bool,
 ) -> Result<(), Error> {
     let pb = progress::create_spinner("Checking for Balatro installation...");
 
@@ -150,7 +143,12 @@ pub fn pull_balatro(
 }
 
 pub async fn unpack_balatro(balatro_path: &str, out_path: &str) -> anyhow::Result<()> {
-    if apk::apktool::get_apktool().await.is_ok() && crate::balapatch::utils::misc::return_java_install().0
+    let apktool_path = crate::balapatch::apk::apktool::has_apktool()
+        .await
+        .unwrap_or(PathBuf::from("./balapatch/apktool.jar"));
+
+    if apk::apktool::get_apktool().await.is_ok()
+        && crate::balapatch::utils::misc::return_java_install().0
     {
         let output = std::process::Command::new(
             crate::balapatch::utils::misc::return_java_install()
