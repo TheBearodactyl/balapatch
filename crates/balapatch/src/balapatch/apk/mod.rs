@@ -1,3 +1,4 @@
+pub mod apk_utils;
 pub mod apktool;
 pub mod zipalign;
 

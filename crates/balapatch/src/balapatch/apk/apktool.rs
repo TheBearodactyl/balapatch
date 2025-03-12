@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -10,7 +10,7 @@ pub async fn has_apktool() -> Result<PathBuf, ()> {
     }
 }
 
-pub async fn get_apktool() -> anyhow::Result<(), String> {
+pub async fn get_apktool() -> Result<(), String> {
     if has_apktool().await.is_err() {
         crate::balapatch::utils::misc::download_file(
             "https://github.com/iBotPeaches/Apktool/releases/download/v2.11.0/apktool_2.11.0.jar",

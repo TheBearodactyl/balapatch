@@ -1,3 +1,14 @@
+//! Programmatic wrapper for lovely :3
+//! Lets you patch individual files with specific
+//! `lovely.toml` files instead of needing a
+//! `Mods` directory.
+//! ----------
+//! This will help quite a lot with
+//! patching the android code since
+//! you can't use a `Mods` dir on
+//! android without quite a lot
+//! of tweaks
+
 use crop::Rope;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -116,15 +127,12 @@ impl Patcher {
 
         let source_content = fs::read_to_string(source_path)?;
         let mut rope = Rope::from(source_content);
-
         let patch_content = fs::read_to_string(patch_path)?;
         let patch_file: PatchFile = toml::from_str(&patch_content)?;
-
-        // Apply patches
         let patch_dir = patch_path.parent().unwrap_or(Path::new("."));
+
         self.apply_patches(&target, &mut rope, &patch_file, patch_dir)?;
 
-        // Write the patched content to the output file
         fs::write(output_path, rope.to_string())?;
 
         Ok(())
@@ -302,7 +310,6 @@ impl Default for Patcher {
     }
 }
 
-/// A default module handler implementation that just logs the module content
 pub struct LoggingModuleHandler;
 
 impl ModuleHandler for LoggingModuleHandler {
@@ -350,13 +357,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn patch_simple_file() {
+    fn patch_simple_file() -> anyhow::Result<(), PatchError> {
         Patcher::new()
             .patch("D:\\Projects\\woah\\balapatch\\lovely.toml")
             .source("D:\\Projects\\woah\\balapatch\\main.lua")
             .output("D:\\Projects\\woah\\balapatch\\skibidi.lua")
             .module_handler(LoggingModuleHandler)
             .patch_file()
-            .expect("Fuck");
     }
+
+    #[test]
+    fn multi_file_patch() {}
 }

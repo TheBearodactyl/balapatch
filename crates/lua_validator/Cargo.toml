@@ -1,0 +1,12 @@
+[package]
+name = "lua_validator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.97", features = ["backtrace"] }
+rslua = "0.3.0"
+typed-builder = "0.20.0"
+
+[build-dependencies]
+miette = { version = "7.5.0", features = ["fancy"] }

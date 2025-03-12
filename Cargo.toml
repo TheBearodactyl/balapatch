@@ -1,3 +1,3 @@
 [workspace]
-members = ["crates/balapatch", "crates/balapatch_derive"]
+members = ["crates/balapatch", "crates/balapatch_derive", "crates/lua_validator"]
 resolver = "2"

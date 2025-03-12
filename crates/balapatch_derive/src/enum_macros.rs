@@ -352,7 +352,7 @@ pub(crate) fn enum_display_impl(input: TokenStream) -> TokenStream {
     let name = derive_input.ident;
 
     let enum_display = match derive_input.data {
-        syn::Data::Enum(ref data_enum) => {
+        Data::Enum(ref data_enum) => {
             let variants = data_enum.variants.iter().map(|variant| {
                 let var_ident = &variant.ident;
                 let var_name = var_ident.to_string();
@@ -379,7 +379,7 @@ pub(crate) fn enum_display_impl(input: TokenStream) -> TokenStream {
                             acc
                         });
 
-                let formatted_lit = syn::LitStr::new(&formatted, var_ident.span());
+                let formatted_lit = LitStr::new(&formatted, var_ident.span());
 
                 quote! {
                     #name::#var_ident => write!(f, "{}", #formatted_lit),

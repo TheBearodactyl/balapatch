@@ -1,11 +1,16 @@
-use crate::balapatch::balatro;
-use crate::balapatch::utils::misc::Either;
+use crate::balapatch::{
+    balatro, tui::adb_wireless_input::adb_wireless_input, tui::progress::create_spinner,
+    utils::misc::Either,
+};
 use adb_client::{ADBServer, ADBUSBDevice, DeviceState};
 use anyhow::{anyhow, Context, Error, Result};
-use std::{fs::File, net::{Ipv4Addr, SocketAddrV4}, path::Path, result};
+use std::{
+    fs::File,
+    net::{Ipv4Addr, SocketAddrV4},
+    path::Path,
+    result,
+};
 use tracing::info;
-use crate::balapatch::tui::adb_wireless_input::adb_wireless_input;
-use crate::balapatch::tui::progress::create_spinner;
 
 fn format_device_state(state: &DeviceState) -> String {
     let formatted_value: &str = match state {

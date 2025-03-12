@@ -28,3 +28,5 @@ balapatch_derive = { version = "0.1.0", path = "../balapatch_derive" }
 lovely-core = { git = "https://github.com/ethangreen-dev/lovely-injector", version = "0.7.1" }
 crop = "0.4.2"
 toml = "0.8.20"
+zip-extract = "0.2.1"
+regex = "1.11.1"
