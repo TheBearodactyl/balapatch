@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 //! lmao this is mostly gonna go unused
 //! still fun to write
 
+=======
+>>>>>>> 2c49caf265594eab24344216ff042097dc9d287e
 use anyhow::{Context, Error, Result};
 use smali::find_smali_files;
 use smali::types::*;
@@ -323,9 +326,15 @@ impl ClassFilter for OrFilter {
 pub mod method_filters {
     type SmaliMethodVec = Vec<Box<dyn Fn(&SmaliMethod) -> bool>>;
 
+<<<<<<< HEAD
     use super::*;
 
     /// Create a filter for methods with a specific return type
+=======
+	use super::*;
+
+	/// Create a filter for methods with a specific return type
+>>>>>>> 2c49caf265594eab24344216ff042097dc9d287e
     pub fn returns_type(return_type: TypeSignature) -> Box<dyn Fn(&SmaliMethod) -> bool> {
         Box::new(move |method: &SmaliMethod| method.signature.return_type == return_type)
     }
@@ -353,9 +362,15 @@ pub mod method_filters {
 
 /// Helper functions to create common instruction patterns
 pub mod instructions {
+<<<<<<< HEAD
     use smali::types::SmaliInstruction;
 
     /// Create a simple pattern that returns a constant boolean value
+=======
+	use smali::types::SmaliInstruction;
+
+	/// Create a simple pattern that returns a constant boolean value
+>>>>>>> 2c49caf265594eab24344216ff042097dc9d287e
     pub fn return_boolean(value: bool) -> Box<dyn Fn() -> Vec<SmaliInstruction>> {
         Box::new(move || {
             use SmaliInstruction::Instruction;
